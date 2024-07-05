@@ -200,7 +200,7 @@ int main()
 
 		command_list->SetComputeRootDescriptorTable(0, descriptor_heap->GetGPUDescriptorHandleForHeapStart());
 		
-		command_list->Dispatch(1920 / 8, 1080 / 8, 1);
+		command_list->Dispatch(width / 8, height / 8, 1);
 
 
 		const auto fb_precopy = CD3DX12_RESOURCE_BARRIER::Transition(
@@ -223,7 +223,7 @@ int main()
 		command_list->ResourceBarrier(1, &fb_postcopy);
 
 		const auto bb_postcopy = CD3DX12_RESOURCE_BARRIER::Transition(
-			framebuffer.Get(),
+			backbuffer.Get(),
 			D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_PRESENT);
 		command_list->ResourceBarrier(1, &bb_postcopy);
 
