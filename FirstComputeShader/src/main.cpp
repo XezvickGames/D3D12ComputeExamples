@@ -232,10 +232,7 @@ int main()
 		EXC_( command_list->Close());
 		ID3D12CommandList* const command_lists[] = { command_list.Get() };
 		direct_command_queue->ExecuteCommandLists(sizeof(command_lists) / sizeof command_lists[0], command_lists);
-
-		/* Present doesnt need manual syncronization with command list, but not because it uses command queue we passed,
-  		 * but because system synchronizes it implicitly... swapchain does actually have separate timeline/queue... 
-                 * Which is also the reason why swapchain UAVs are not allowed, it have to be synchronized by system but it cant do so with dx12 UAVs */
+		
 		EXC_( swapchain->Present(0, 0));
 
 		EXC_( direct_command_queue->Signal(fence.Get(), ++fence_value));
