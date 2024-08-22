@@ -60,6 +60,9 @@ int main()
 #pragma endregion
 
 #pragma region d3d12_init_core
+	// Factory to create swapchains etc
+	EXC_( CreateDXGIFactory2(DXGI_CREATE_FACTORY_DEBUG, IID_PPV_ARGS(&dxgi_factory)));
+	
 	/* Get d3d12 debug layer and upgrade it to our version(ComPtr<ID3D12Debug6> debug_controller);
 	 * And enable validations(has to be done before device creation)
 	 */
@@ -102,10 +105,8 @@ int main()
 		command_allocator.Get(), nullptr, IID_PPV_ARGS(&command_list)));
 
 	EXC_( command_list->Close());
-	EXC_( command_allocator->Reset());
-	EXC_( command_list->Reset(command_allocator.Get(), nullptr));
 
-
+	
 	fence_value = 0;
 	EXC_( device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&fence)));
 	fence_event = CreateEventA(nullptr, FALSE, FALSE, nullptr);
@@ -116,9 +117,6 @@ int main()
 #pragma endregion
 
 #pragma region d3d12_init_swapchain
-	// Factory to create swapchains etc
-	EXC_( CreateDXGIFactory2(DXGI_CREATE_FACTORY_DEBUG, IID_PPV_ARGS(&dxgi_factory)));
-	
 	const DXGI_SWAP_CHAIN_DESC1 swapchain_desc = {
 		width,
 		height,
@@ -192,6 +190,9 @@ int main()
 		buffer_index = swapchain->GetCurrentBackBufferIndex();
 		const auto& backbuffer = swapchain_buffers[buffer_index];
 
+		
+		EXC_( command_allocator->Reset());
+		EXC_( command_list->Reset(command_allocator.Get(), nullptr));
 
 		command_list->SetPipelineState(pso.Get());
 		command_list->SetComputeRootSignature(root_signature.Get());
@@ -228,10 +229,14 @@ int main()
 		command_list->ResourceBarrier(1, &bb_postcopy);
 
 
-
 		EXC_( command_list->Close());
 		ID3D12CommandList* const command_lists[] = { command_list.Get() };
 		direct_command_queue->ExecuteCommandLists(sizeof(command_lists) / sizeof command_lists[0], command_lists);
+
+		/* Present doesnt need manual syncronization with command list, but not because it uses command queue we passed,
+  		 * but because system synchronizes it implicitly... swapchain does actually have separate timeline/queue... 
+                 * Which is also the reason why swapchain UAVs are not allowed, it have to be synchronized by system but it cant do so with dx12 UAVs */
+		EXC_( swapchain->Present(0, 0));
 
 		EXC_( direct_command_queue->Signal(fence.Get(), ++fence_value));
 		EXC_( fence->SetEventOnCompletion(fence_value, fence_event));
@@ -239,24 +244,11 @@ int main()
 			EXC_( HRESULT_FROM_WIN32(GetLastError()));
 		}
 
-		EXC_( command_allocator->Reset());
-		EXC_( command_list->Reset(command_allocator.Get(), nullptr));
-
-
-		EXC_( swapchain->Present(0, 0));
-
+		
 		glfwPollEvents();
 	}
 
-
-
-	EXC_( direct_command_queue->Signal(fence.Get(), fence_value));
-	EXC_( fence->SetEventOnCompletion(fence_value, fence_event));
-	if (::WaitForSingleObject(fence_event, 2000) == WAIT_FAILED)
-	{
-		EXC_( HRESULT_FROM_WIN32(GetLastError()));
-	}
-
+	
 	glfwTerminate();
 	std::cin.get();
 	return 0;
